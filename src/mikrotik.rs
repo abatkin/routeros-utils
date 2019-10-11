@@ -24,7 +24,7 @@ impl Api {
             wrapper: rentals::Wrapper::new(
                 Box::new(TcpStream::connect(format!("{}:{}", host, port)).unwrap()),
                 |s| {
-                    let mut ros = ApiRos::new(s, false);
+                    let mut ros = ApiRos::new(s);
                     ros.login(username, password);
                     ros
                 },
