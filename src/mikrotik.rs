@@ -97,10 +97,10 @@ impl DhcpEntry {
         };
 
         for line in sentence {
-            if !line.starts_with("=") {
+            if !line.starts_with('=') {
                 continue;
             }
-            let parts: Vec<&str> = line.splitn(3, "=").collect();
+            let parts: Vec<&str> = line.splitn(3, '=').collect();
             if parts.len() != 3 {
                 continue;
             }
