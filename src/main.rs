@@ -26,11 +26,28 @@ struct Cli {
     /// API password
     #[structopt(long)]
     password: String,
+
+    #[structopt(long, default_value = "dhcp-table")]
+    command: String,
 }
 
 fn main() {
     let args = Cli::from_args();
     let mut api = Api::new(args.host, args.port, args.username, args.password);
+
+    match args.command.as_ref() {
+        "dhcp-table" => dump_dhcp_table(&mut api),
+        "external-ip" => dump_external_ip(&mut api),
+        cmd => api.dump_table(cmd),
+//        cmd => println!("Invalid command: {}", cmd),
+    }
+}
+
+fn dump_external_ip(api: &mut Api) {
+    api.external_ip();
+}
+
+fn dump_dhcp_table(api: &mut Api) {
     let records = api.dhcp_table();
 
     //TODO: this doesn't work so well (need to sort each octet separately)

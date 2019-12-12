@@ -47,6 +47,45 @@ impl Api {
             records
         })
     }
+
+    pub fn external_ip(&mut self) -> Option<String> {
+        self.dump_table("/interface/print");
+        None
+    }
+
+    pub fn dump_table(&mut self, path: &str) {
+        self.records(path).into_iter().for_each(|r| println!("{:#?}", r));
+    }
+
+    pub fn records(&mut self, path: &str) -> RecordIter {
+        RecordIter::new(self, path)
+    }
+}
+
+pub struct RecordIter<'a> {
+    api: &'a mut Api
+}
+
+impl <'a> RecordIter<'a> {
+    fn new(api: &'a mut Api, path: &str) -> RecordIter<'a> {
+        api.wrapper.rent_mut(|ros| ros.write_sentence(vec![path.into()]));
+        RecordIter {
+            api
+        }
+    }
+}
+
+impl <'a> Iterator for RecordIter<'a> {
+    type Item = Vec<String>;
+
+    fn next(self: &mut RecordIter<'a>) -> Option<Self::Item> {
+        let values = self.api.wrapper.rent_mut(|ros| ros.read_sentence());
+        if values.get(0).filter(|&v|v == "!done" || v == "!trap").is_some() {
+            None
+        } else {
+            Some(values)
+        }
+    }
 }
 
 #[derive(Debug)]
