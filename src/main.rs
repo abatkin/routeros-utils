@@ -29,6 +29,9 @@ struct Cli {
 
     #[structopt(long, default_value = "dhcp-table")]
     command: String,
+
+    #[structopt(long, name = "interface-name", default_value = "ether1")]
+    interface_name: String,
 }
 
 fn main() {
@@ -37,14 +40,17 @@ fn main() {
 
     match args.command.as_ref() {
         "dhcp-table" => dump_dhcp_table(&mut api),
-        "external-ip" => dump_external_ip(&mut api),
+        "external-ip" => dump_external_ip(&mut api, &args.interface_name),
         cmd => api.dump_table(cmd),
-//        cmd => println!("Invalid command: {}", cmd),
     }
 }
 
-fn dump_external_ip(api: &mut Api) {
-    api.external_ip();
+fn dump_external_ip(api: &mut Api, interface_name: &str) {
+    let ip = api.external_ip(interface_name);
+    match ip {
+        Some(addr) => println!("{}", addr),
+        None => println!("Not found"),
+    }
 }
 
 fn dump_dhcp_table(api: &mut Api) {
