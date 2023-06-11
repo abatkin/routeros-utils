@@ -2,44 +2,24 @@ use router_os::ApiRos;
 use std::collections::HashMap;
 use std::net::TcpStream;
 
-rental! {
-    pub mod rentals {
-        use std::net::TcpStream;
-        use router_os::ApiRos;
-
-        #[rental_mut]
-        pub struct Wrapper {
-            stream: Box<TcpStream>,
-            ros: ApiRos<'stream>,
-        }
-    }
+pub struct Api<'a> {
+    ros: ApiRos<'a>,
 }
 
-pub struct Api {
-    wrapper: rentals::Wrapper,
-}
-
-impl Api {
-    pub fn new(host: String, port: u16, username: String, password: String) -> Api {
-        Api {
-            wrapper: rentals::Wrapper::new(
-                Box::new(TcpStream::connect(format!("{}:{}", host, port)).unwrap()),
-                |s| {
-                    let mut ros = ApiRos::new(s);
-                    ros.login(username, password);
-                    ros
-                },
-            ),
-        }
+impl<'a> Api<'a> {
+    pub fn new(stream: &'a mut TcpStream, username: String, password: String) -> Api<'a> {
+        let mut ros = ApiRos::new(stream);
+        ros.login(username, password);
+        Api { ros }
     }
 
-    pub fn dhcp_table(&mut self) -> Vec<DhcpEntry> {
+    pub fn dhcp_table(&'a mut self) -> Vec<DhcpEntry> {
         self.records("/ip/dhcp-server/lease/print")
             .map(DhcpEntry::parse)
             .collect()
     }
 
-    pub fn external_ip(&mut self, interface_name: &str) -> Option<String> {
+    pub fn external_ip(&'a mut self, interface_name: &str) -> Option<String> {
         let record = self
             .table_map("/ip/address/print")
             .into_iter()
@@ -48,21 +28,19 @@ impl Api {
                     .map_or_else(|| false, |v| v == interface_name)
             });
         match record {
-            Some(r) => match r.get("address") {
-                Some(i) => Some(i.split('/').next().unwrap().to_string()),
-                _ => None,
-            },
+            Some(r) => r
+                .get("address")
+                .map(|i| i.split('/').next().unwrap().to_string()),
             _ => None,
         }
     }
 
-    pub fn dump_table(&mut self, path: &str) {
+    pub fn dump_table(&'a mut self, path: &str) {
         println!("{:#?}", self.table_map(path))
     }
 
-    pub fn table_map(&mut self, path: &str) -> Vec<HashMap<String, String>> {
+    pub fn table_map(&'a mut self, path: &str) -> Vec<HashMap<String, String>> {
         self.records(path)
-            .into_iter()
             .map(|record| {
                 record
                     .into_iter()
@@ -79,19 +57,18 @@ impl Api {
             .collect()
     }
 
-    pub fn records(&mut self, path: &str) -> RecordIter {
+    pub fn records(&'a mut self, path: &str) -> RecordIter {
         RecordIter::new(self, path)
     }
 }
 
 pub struct RecordIter<'a> {
-    api: &'a mut Api,
+    api: &'a mut Api<'a>,
 }
 
 impl<'a> RecordIter<'a> {
-    fn new(api: &'a mut Api, path: &str) -> RecordIter<'a> {
-        api.wrapper
-            .rent_mut(|ros| ros.write_sentence(vec![path.into()]));
+    fn new(api: &'a mut Api<'a>, path: &str) -> RecordIter<'a> {
+        api.ros.write_sentence(vec![path.into()]);
         RecordIter { api }
     }
 }
@@ -100,7 +77,7 @@ impl<'a> Iterator for RecordIter<'a> {
     type Item = Vec<String>;
 
     fn next(self: &mut RecordIter<'a>) -> Option<Self::Item> {
-        let values = self.api.wrapper.rent_mut(|ros| ros.read_sentence());
+        let values = self.api.ros.read_sentence();
         if values
             .get(0)
             .filter(|&v| v == "!done" || v == "!trap")

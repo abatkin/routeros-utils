@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 structopt = "0.3.2"
 prettytable-rs = "^0.8"
-rental = "0.5"
 
 [dependencies.routeros_rust]
 git = "https://github.com/dmvoiper/Mikrotik-rust"

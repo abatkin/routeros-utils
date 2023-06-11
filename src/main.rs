@@ -1,13 +1,11 @@
 #[macro_use]
 extern crate prettytable;
 use prettytable::{format, Table};
+use std::net::TcpStream;
 use structopt::StructOpt;
 
 mod mikrotik;
 use mikrotik::Api;
-
-#[macro_use]
-extern crate rental;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -36,7 +34,8 @@ struct Cli {
 
 fn main() {
     let args = Cli::from_args();
-    let mut api = Api::new(args.host, args.port, args.username, args.password);
+    let mut stream = TcpStream::connect(format!("{}:{}", args.host, args.port)).unwrap();
+    let mut api = Api::new(&mut stream, args.username, args.password);
 
     match args.command.as_ref() {
         "dhcp-table" => dump_dhcp_table(&mut api),
@@ -45,7 +44,7 @@ fn main() {
     }
 }
 
-fn dump_external_ip(api: &mut Api, interface_name: &str) {
+fn dump_external_ip<'a>(api: &'a mut Api<'a>, interface_name: &str) {
     let ip = api.external_ip(interface_name);
     match ip {
         Some(addr) => println!("{}", addr),
@@ -53,7 +52,7 @@ fn dump_external_ip(api: &mut Api, interface_name: &str) {
     }
 }
 
-fn dump_dhcp_table(api: &mut Api) {
+fn dump_dhcp_table<'a>(api: &'a mut Api<'a>) {
     let records = api.dhcp_table();
 
     //TODO: this doesn't work so well (need to sort each octet separately)
